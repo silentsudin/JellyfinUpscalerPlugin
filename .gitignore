@@ -1,0 +1,42 @@
+# Build outputs
+bin/
+obj/
+built/
+*.zip
+
+# .NET
+*.dll
+*.pdb
+*.cache
+*.tmp
+.vs/
+.vscode/
+
+# Docker
+*.log
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test outputs
+test-*
+**/test-*
+
+# IDE
+*.swp
+*.swo
+*~
+
+# Logs
+logs/
+*.log
+
+# Dependencies
+node_modules/
+packages/
+
+# Temporary files
+temp/
+tmp/

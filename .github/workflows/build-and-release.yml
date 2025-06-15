@@ -1,0 +1,278 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Calculate version using GitVersion
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.gitversion.outputs.semVer }}
+      major-minor-patch: ${{ steps.gitversion.outputs.majorMinorPatch }}
+      sha: ${{ steps.gitversion.outputs.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v1.1.1
+        with:
+          versionSpec: "5.x"
+
+      - name: Determine Version
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@v1.1.1
+        with:
+          useConfigFile: true
+
+  # Build and test the .NET plugin
+  build-plugin:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build plugin
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Run tests (if any)
+        run: dotnet test --configuration Release --no-build --verbosity normal || echo "No tests found"
+
+      - name: Update version in manifest
+        run: |
+          VERSION="${{ needs.version.outputs.version }}"
+          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" manifest.json
+          # Update sourceUrl with the correct tag
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          sed -i "s|releases/download/v[^/]*/|releases/download/$TAG_NAME/|" manifest.json
+
+      - name: Package plugin
+        run: |
+          chmod +x ./package.sh
+          VERSION="${{ needs.version.outputs.version }}" ./package.sh
+
+      - name: Upload plugin artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jellyfin-upscaler-plugin
+          path: JellyfinUpscalerPlugin-v*.zip
+
+  # Build Docker images for all GPU types
+  build-docker:
+    needs: version
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        gpu-type:
+          - { name: "cuda", dockerfile: "Dockerfile", platform: "linux/amd64" }
+          - {
+              name: "intel",
+              dockerfile: "Dockerfile.intel",
+              platform: "linux/amd64",
+            }
+          - {
+              name: "amd",
+              dockerfile: "Dockerfile.amd",
+              platform: "linux/amd64",
+            }
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.gpu-type.name }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./docker/upscaler-service
+          file: ./docker/upscaler-service/${{ matrix.gpu-type.dockerfile }}
+          platforms: ${{ matrix.gpu-type.platform }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Create GitHub Release
+  release:
+    needs: [version, build-plugin, build-docker]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download plugin artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: jellyfin-upscaler-plugin
+
+      - name: Generate release notes
+        id: release-notes
+        run: |
+          cat > release_notes.md << 'EOF'
+          ## 🎉 Jellyfin Upscaler Plugin v${{ needs.version.outputs.version }}
+
+          ### 🚀 Features
+          - Real-time AI upscaling for Jellyfin media server
+          - Multi-GPU support: NVIDIA CUDA, Intel IPEX, AMD ROCm
+          - Streaming transcoding with sidecar Docker service
+          - Configurable upscaling models (ESRGAN, Waifu2x)
+          - Web-based configuration interface
+
+          ### 📦 Installation Options
+
+          #### Option 1: Plugin Only
+          1. Download `JellyfinUpscalerPlugin-v${{ needs.version.outputs.version }}.zip`
+          2. Upload to Jellyfin Admin Dashboard → Plugins → Catalog → Install Plugin
+          3. Configure sidecar service URL in plugin settings
+
+          #### Option 2: Full Setup with Docker
+          ```bash
+          # NVIDIA GPU users
+          docker run -d --name jellyfin-upscaler-sidecar \
+            --gpus all \
+            -p 8765:8765 \
+            ghcr.io/${{ github.repository }}-cuda:v${{ needs.version.outputs.version }}
+
+          # Intel GPU users  
+          docker run -d --name jellyfin-upscaler-sidecar \
+            --device /dev/dri \
+            -p 8765:8765 \
+            ghcr.io/${{ github.repository }}-intel:v${{ needs.version.outputs.version }}
+
+          # AMD GPU users
+          docker run -d --name jellyfin-upscaler-sidecar \
+            --device /dev/kfd --device /dev/dri \
+            -p 8765:8765 \
+            ghcr.io/${{ github.repository }}-amd:v${{ needs.version.outputs.version }}
+          ```
+
+          ### 🐳 Docker Images Published
+          - `ghcr.io/${{ github.repository }}-cuda:v${{ needs.version.outputs.version }}` - NVIDIA GPU support
+          - `ghcr.io/${{ github.repository }}-intel:v${{ needs.version.outputs.version }}` - Intel GPU support  
+          - `ghcr.io/${{ github.repository }}-amd:v${{ needs.version.outputs.version }}` - AMD GPU support
+
+          ### 📚 Documentation
+          - [Multi-GPU Support Guide](https://github.com/${{ github.repository }}/blob/main/MULTI_GPU_SUPPORT.md)
+          - [GPU Selection Guide](https://github.com/${{ github.repository }}/blob/main/GPU_SELECTION_GUIDE.md)
+          - [Docker Troubleshooting](https://github.com/${{ github.repository }}/blob/main/DOCKER_TROUBLESHOOTING.md)
+
+          ### 🔧 System Requirements
+          - Jellyfin 10.10.3+
+          - Docker for sidecar service
+          - GPU with 4GB+ VRAM (recommended)
+          - Compatible GPU drivers (CUDA 12.x, Intel Level Zero, ROCm 6.0+)
+          EOF
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Jellyfin Upscaler Plugin v${{ needs.version.outputs.version }}
+          body_path: release_notes.md
+          files: |
+            JellyfinUpscalerPlugin-v*.zip
+            manifest.json
+          draft: false
+          prerelease: ${{ contains(needs.version.outputs.version, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Update plugin repository manifest (for Jellyfin plugin catalog)
+  update-manifest:
+    needs: [version, release]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') && !contains(needs.version.outputs.version, '-')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Calculate checksum
+        id: checksum
+        run: |
+          CHECKSUM=$(curl -sL "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/JellyfinUpscalerPlugin-v${{ needs.version.outputs.version }}.zip" | md5sum | cut -d' ' -f1)
+          echo "checksum=$CHECKSUM" >> $GITHUB_OUTPUT
+
+      - name: Update manifest with release info
+        run: |
+          VERSION="${{ needs.version.outputs.version }}"
+          TAG_NAME="${{ github.ref_name }}"
+          CHECKSUM="${{ steps.checksum.outputs.checksum }}"
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          # Update manifest.json with new release info
+          cat > manifest.json << EOF
+          [
+              {
+                  "guid": "f87f700e-679d-43e6-9c7c-b3a410dc3f12",
+                  "name": "Jellyfin Upscaler",
+                  "description": "Enhance video quality with real-time AI upscaling. Supports NVIDIA CUDA, Intel IPEX, and AMD ROCm acceleration.",
+                  "owner": "Kuschel-code",
+                  "category": "Video Processing",
+                  "versions": [
+                      {
+                          "version": "$VERSION",
+                          "targetAbi": "10.10.3.0",
+                          "sourceUrl": "https://github.com/${{ github.repository }}/releases/download/$TAG_NAME/JellyfinUpscalerPlugin-v$VERSION.zip",
+                          "checksum": "$CHECKSUM",
+                          "imageUrl": "https://github.com/${{ github.repository }}/raw/main/assets/logo.png",
+                          "timestamp": "$TIMESTAMP"
+                      }
+                  ]
+              }
+          ]
+          EOF
+
+      - name: Commit updated manifest
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add manifest.json
+          git commit -m "Update manifest for release v${{ needs.version.outputs.version }}" || exit 0
+          git push

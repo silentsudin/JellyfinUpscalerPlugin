@@ -1,0 +1,16 @@
+{
+    "guid": "f87f700e-679d-43e6-9c7c-b3a410dc3f12",
+    "name": "Jellyfin Upscaler",
+    "description": "Enhance video quality with real-time upscaling for supported devices using AI models and advanced shader algorithms.",
+    "overview": "The Jellyfin Upscaler Plugin provides intelligent video enhancement through AI upscaling (ESRGAN, Waifu2x) and traditional high-quality shaders (Bicubic, Lanczos). Features automatic content detection, device capability testing, and customizable enhancement profiles for optimal performance.",
+    "owner": "Kuschel-code",
+    "category": "Video Processing",
+    "version": "1.0.0",
+    "targetAbi": "10.10.3.0",
+    "framework": "net8.0",
+    "timestamp": "2025-06-15T15:45:00Z",
+    "changelog": "Initial release with AI upscaling support, client-side processing, intelligent content detection, and comprehensive device benchmarking.",
+    "sourceUrl": "https://github.com/Kuschel-code/JellyfinUpscalerPlugin",
+    "checksum": "",
+    "imageUrl": "https://github.com/Kuschel-code/JellyfinUpscalerPlugin/raw/main/assets/logo.png"
+}

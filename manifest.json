@@ -10,8 +10,8 @@
                 "version": "1.0.0",
                 "targetAbi": "10.10.3.0",
                 "sourceUrl": "https://github.com/Kuschel-code/JellyfinUpscalerPlugin/releases/download/v1.0.0/JellyfinUpscalerPlugin.zip",
-                "checksum": "8c6972137cfdaa01e19595fba685bcb7"
-                "imageUrl": "https://github.com/Kuschel-code/JellyfinUpscalerPlugin/raw/main/assets/logo.png"
+                "checksum": "8c6972137cfdaa01e19595fba685bcb7",
+                "imageUrl": "https://github.com/Kuschel-code/JellyfinUpscalerPlugin/raw/main/assets/logo.png",
                 "timestamp": "2024-12-31T03:36:00Z"
             }
         ]

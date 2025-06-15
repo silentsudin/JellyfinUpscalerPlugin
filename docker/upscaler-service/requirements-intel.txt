@@ -1,0 +1,35 @@
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+aiofiles==23.2.1
+redis==5.0.1
+celery==5.3.4
+opencv-python-headless==4.9.0.80
+numpy==1.26.4
+pillow==10.2.0
+
+# Note: PyTorch and Intel Extension installed separately in Dockerfile
+onnxruntime==1.17.1  # CPU version for Intel compatibility
+requests==2.31.0
+httpx==0.25.2
+python-multipart==0.0.6
+jinja2==3.1.2
+
+# AI upscaling models - compatible with Intel GPU
+basicsr==1.4.2
+realesrgan==0.3.0
+gfpgan==1.3.8
+facexlib==0.3.0
+
+# Video processing and streaming  
+imageio==2.33.1
+imageio-ffmpeg==0.4.9
+ffmpeg-python==0.2.0
+
+# Logging and monitoring
+structlog==23.2.0
+prometheus-client==0.19.0
+
+# Streaming support
+websockets==12.0

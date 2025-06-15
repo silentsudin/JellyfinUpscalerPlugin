@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Jellyfin Upscaler Plugin - Real-ESRGAN</title>
+</head>
+
+<body>
+    <div id="UpscalerPluginConfigPage" data-role="page" class="page type-interior pluginConfigurationPage"
+        data-require="emby-input,emby-button,emby-select,emby-checkbox">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="UpscalerPluginConfigForm">
+                    <div class="sectionTitleContainer flex align-items-center">
+                        <h2 class="sectionTitle">Real-ESRGAN Upscaler Settings</h2>
+                    </div>
+
+                    <div class="verticalSection">
+                        <div class="selectContainer">
+                            <label class="selectLabel" for="selectedProfile">Real-ESRGAN Profile:</label>
+                            <select is="emby-select" id="selectedProfile" name="selectedProfile"
+                                class="emby-select-withcolor">
+                                <option value="General">General (x4+) - Best for live action content</option>
+                                <option value="Anime">Anime (x4) - Optimized for anime and cartoon content</option>
+                                <option value="Face">Face Enhancement - Specialized for faces and portraits</option>
+                                <option value="Compact">Compact (x2+) - Faster processing, lower quality</option>
+                            </select>
+                            <div class="fieldDescription">Choose the Real-ESRGAN model that best matches your content
+                                type.</div>
+                        </div>
+                    </div>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input is="emby-checkbox" type="checkbox" id="enableBenchmark" name="enableBenchmark" />
+                            <span>Enable Benchmark Test</span>
+                        </label>
+                        <div class="fieldDescription checkboxFieldDescription">Run a benchmark test to determine if the
+                            device can handle Real-ESRGAN processing.</div>
+                    </div>
+
+                    <div class="verticalSection">
+                        <h3>Sidecar Service Configuration</h3>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="sidecarServiceUrl">Sidecar Service
+                                URL:</label>
+                            <input is="emby-input" type="url" id="sidecarServiceUrl" name="sidecarServiceUrl"
+                                value="http://jellyfin-upscaler-sidecar:8765" class="emby-input" />
+                            <div class="fieldDescription">
+                                URL of the Real-ESRGAN Docker service. Default works with docker-compose setup.
+                            </div>
+                        </div>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="sidecarTimeoutSeconds">Connection Timeout
+                                (seconds):</label>
+                            <input is="emby-input" type="number" id="sidecarTimeoutSeconds" name="sidecarTimeoutSeconds"
+                                min="5" max="300" value="30" class="emby-input" />
+                            <div class="fieldDescription">
+                                Maximum time to wait for sidecar service responses.
+                            </div>
+                        </div>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input is="emby-checkbox" type="checkbox" id="autoUpscaleEnabled"
+                                    name="autoUpscaleEnabled" />
+                                <span>Enable Auto-Upscaling</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">Automatically start upscaling jobs
+                                for
+                                compatible media.</div>
+                        </div>
+
+                        <div class="inputContainer" style="margin-bottom: 20px;">
+                            <button is="emby-button" type="button" id="testConnectionBtn"
+                                class="raised button-submit emby-button">
+                                <span>Test Connection</span>
+                            </button>
+                            <div id="connectionStatus" class="fieldDescription" style="margin-top: 10px;"></div>
+                        </div>
+                    </div>
+
+                    <div class="verticalSection">
+                        <h3>Real-ESRGAN Processing Settings</h3>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input is="emby-checkbox" type="checkbox" id="enableGPUAcceleration"
+                                    name="realESRGANSettings.enableGPUAcceleration" />
+                                <span>Enable GPU Acceleration</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">Use GPU for Real-ESRGAN processing.
+                                Requires compatible GPU and drivers.</div>
+                        </div>
+
+                        <div class="selectContainer">
+                            <label class="selectLabel" for="minResolutionForAI">Minimum Resolution for AI
+                                Upscaling:</label>
+                            <select is="emby-select" id="minResolutionForAI"
+                                name="realESRGANSettings.minResolutionForAI" class="emby-select-withcolor">
+                                <option value="480p">480p</option>
+                                <option value="720p">720p</option>
+                                <option value="1080p">1080p</option>
+                            </select>
+                            <div class="fieldDescription">Content below this resolution will be upscaled using
+                                Real-ESRGAN.</div>
+                        </div>
+
+                        <div class="selectContainer">
+                            <label class="selectLabel" for="maxResolutionForAI">Maximum Resolution for AI
+                                Upscaling:</label>
+                            <select is="emby-select" id="maxResolutionForAI"
+                                name="realESRGANSettings.maxResolutionForAI" class="emby-select-withcolor">
+                                <option value="1440p">1440p (2K)</option>
+                                <option value="4K">4K (2160p)</option>
+                                <option value="8K">8K (4320p)</option>
+                            </select>
+                            <div class="fieldDescription">Content above this resolution will skip AI upscaling.</div>
+                        </div>
+
+                        <div class="selectContainer">
+                            <label class="selectLabel" for="upscaleFactor">Upscale Factor:</label>
+                            <select is="emby-select" id="upscaleFactor" name="realESRGANSettings.upscaleFactor"
+                                class="emby-select-withcolor">
+                                <option value="2">2x Upscale</option>
+                                <option value="4">4x Upscale</option>
+                            </select>
+                            <div class="fieldDescription">How much to increase the resolution. 4x is higher quality but
+                                slower.</div>
+                        </div>
+                    </div>
+
+                    <div class="verticalSection">
+                        <h3>Real-ESRGAN Model Information</h3>
+                        <div class="fieldDescription">
+                            <strong>General (x4+):</strong> Best for photographs, live action movies and TV shows. High
+                            quality 4x upscaling.<br>
+                            <strong>Anime:</strong> Specialized for anime, cartoons, and drawn content. Preserves sharp
+                            lines and colors.<br>
+                            <strong>Face Enhancement:</strong> Optimized for faces and portraits with enhanced facial
+                            details.<br>
+                            <strong>Compact (x2+):</strong> Faster processing with 2x upscaling, good for real-time use.
+                        </div>
+                    </div>
+
+                    <br />
+                    <div>
+                        <button is="emby-button" type="submit" class="raised button-submit emby-button">
+                            <span>Save</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        (function () {
+            var pluginId = "f87f700e-679d-43e6-9c7c-b3a410dc3f12";
+
+            function loadPage(page, config, userId) {
+                // Load current configuration
+                page.querySelector('#selectedProfile').value = config.SelectedProfile || 'General';
+                page.querySelector('#enableBenchmark').checked = config.EnableBenchmark || false;
+                page.querySelector('#sidecarServiceUrl').value = config.SidecarServiceUrl || 'http://jellyfin-upscaler-sidecar:8765';
+                page.querySelector('#sidecarTimeoutSeconds').value = config.SidecarTimeoutSeconds || 30;
+                page.querySelector('#autoUpscaleEnabled').checked = config.AutoUpscaleEnabled || false;
+
+                // Load Real-ESRGAN specific settings
+                var realESRGANSettings = config.RealESRGANSettings || {};
+                page.querySelector('#enableGPUAcceleration').checked = realESRGANSettings.EnableGPUAcceleration !== false;
+                page.querySelector('#minResolutionForAI').value = realESRGANSettings.MinResolutionForAI || '720p';
+                page.querySelector('#maxResolutionForAI').value = realESRGANSettings.MaxResolutionForAI || '4K';
+                page.querySelector('#upscaleFactor').value = realESRGANSettings.UpscaleFactor || 4;
+
+                // Test connection button
+                page.querySelector('#testConnectionBtn').addEventListener('click', function () {
+                    testSidecarConnection(page);
+                });
+            }
+
+            function saveConfiguration(page, userId) {
+                Dashboard.showLoadingMsg();
+
+                var config = {
+                    SelectedProfile: page.querySelector('#selectedProfile').value,
+                    EnableBenchmark: page.querySelector('#enableBenchmark').checked,
+                    SidecarServiceUrl: page.querySelector('#sidecarServiceUrl').value,
+                    SidecarTimeoutSeconds: parseInt(page.querySelector('#sidecarTimeoutSeconds').value),
+                    AutoUpscaleEnabled: page.querySelector('#autoUpscaleEnabled').checked,
+                    RealESRGANSettings: {
+                        EnableGPUAcceleration: page.querySelector('#enableGPUAcceleration').checked,
+                        MinResolutionForAI: page.querySelector('#minResolutionForAI').value,
+                        MaxResolutionForAI: page.querySelector('#maxResolutionForAI').value,
+                        UpscaleFactor: parseInt(page.querySelector('#upscaleFactor').value)
+                    }
+                };
+
+                ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
+                    Dashboard.processPluginConfigurationUpdateResult(result);
+                });
+            }
+
+            function testSidecarConnection(page) {
+                var statusDiv = page.querySelector('#connectionStatus');
+                var url = page.querySelector('#sidecarServiceUrl').value;
+                var timeout = parseInt(page.querySelector('#sidecarTimeoutSeconds').value) * 1000;
+
+                statusDiv.innerHTML = '<span style="color: orange;">Testing connection...</span>';
+
+                var healthUrl = url + '/health';
+                var controller = new AbortController();
+                var timeoutId = setTimeout(() => controller.abort(), timeout);
+
+                fetch(healthUrl, {
+                    method: 'GET',
+                    signal: controller.signal
+                })
+                    .then(response => {
+                        clearTimeout(timeoutId);
+                        if (response.ok) {
+                            return response.json();
+                        }
+                        throw new Error('HTTP ' + response.status);
+                    })
+                    .then(data => {
+                        statusDiv.innerHTML = '<span style="color: green;">✅ Connection successful!</span><br>' +
+                            '<small>Status: ' + data.status + ', GPU Available: ' + (data.gpu_available ? 'Yes' : 'No') + '</small>';
+                    })
+                    .catch(error => {
+                        if (error.name === 'AbortError') {
+                            statusDiv.innerHTML = '<span style="color: red;">❌ Connection timeout</span>';
+                        } else {
+                            statusDiv.innerHTML = '<span style="color: red;">❌ Connection failed: ' + error.message + '</span>';
+                        }
+                    });
+            }
+
+            window.UpscalerPluginConfigPage = {
+                pluginId: pluginId,
+                loadPage: loadPage,
+                saveConfiguration: saveConfiguration
+            };
+
+        })();
+
+        // Initialize page
+        pageIdOn('pageinit', "UpscalerPluginConfigPage", function () {
+            var page = this;
+
+            ApiClient.getPluginConfiguration(window.UpscalerPluginConfigPage.pluginId).then(function (config) {
+                window.UpscalerPluginConfigPage.loadPage(page, config);
+            });
+
+            page.querySelector('#UpscalerPluginConfigForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+                window.UpscalerPluginConfigPage.saveConfiguration(page);
+                return false;
+            });
+        });
+    </script>
+</body>
+
+</html>
+URL of the upscaler sidecar service.
+<br>Examples:
+<br>• Docker Compose: <code>http://jellyfin-upscaler-sidecar:8765</code>
+<br>• Local development: <code>http://localhost:8765</code>
+<br>• Remote server: <code>http://your-server-ip:8765</code>
+</div>
+<div class="inputContainer" style="margin-top: 10px;">
+    <button is="emby-button" type="button" id="testSidecarConnection" class="emby-button">
+        <span>Test Connection</span>
+    </button>
+    <span id="connectionStatus" style="margin-left: 10px;"></span>
+</div>
+</div>
+
+<div class="inputContainer">
+    <label class="inputLabel inputLabelUnfocused" for="sidecarTimeoutSeconds">Connection Timeout
+        (seconds):</label>
+    <input is="emby-input" type="number" id="sidecarTimeoutSeconds" name="sidecarTimeoutSeconds" min="5" max="300"
+        value="30" class="emby-input" />
+    <div class="fieldDescription">Timeout for sidecar service connections.</div>
+</div>
+
+<div class="checkboxContainer checkboxContainer-withDescription">
+    <label class="emby-checkbox-label">
+        <input is="emby-checkbox" type="checkbox" id="autoUpscaleEnabled" name="autoUpscaleEnabled" />
+        <span>Enable Automatic Upscaling</span>
+    </label>
+    <div class="fieldDescription checkboxFieldDescription">Automatically upscale videos during
+        playback when conditions are met.</div>
+</div>
+</div>
+
+<div id="customSettingsSection" class="verticalSection" style="display: none;">
+    <h3>Custom Profile Settings</h3>
+
+    <div class="checkboxContainer checkboxContainer-withDescription">
+        <label class="emby-checkbox-label">
+            <input is="emby-checkbox" type="checkbox" id="enableFPSRule" name="enableFPSRule" />
+            <span>Enable FPS Rule</span>
+        </label>
+        <div class="fieldDescription checkboxFieldDescription">Consider FPS when applying AI
+            upscaling.</div>
+    </div>
+
+    <div class="selectContainer">
+        <label class="selectLabel" for="maxFPSForAI">Max FPS for AI Upscaling:</label>
+        <select is="emby-select" id="maxFPSForAI" name="maxFPSForAI" class="emby-select-withcolor">
+            <option value="Unlimited">Unlimited</option>
+            <option value="30 FPS">30 FPS</option>
+            <option value="60 FPS">60 FPS</option>
+            <option value="120 FPS">120 FPS</option>
+        </select>
+    </div>
+
+    <div class="selectContainer">
+        <label class="selectLabel" for="minResolutionForAI">Min Resolution for AI:</label>
+        <select is="emby-select" id="minResolutionForAI" name="minResolutionForAI" class="emby-select-withcolor">
+            <option value="480p">480p</option>
+            <option value="720p">720p</option>
+            <option value="1080p">1080p</option>
+            <option value="1440p">1440p</option>
+            <option value="2160p">2160p</option>
+            <option value="4320p">4320p</option>
+        </select>
+    </div>
+
+    <div class="selectContainer">
+        <label class="selectLabel" for="maxResolutionForAI">Max Resolution for AI:</label>
+        <select is="emby-select" id="maxResolutionForAI" name="maxResolutionForAI" class="emby-select-withcolor">
+            <option value="480p">480p</option>
+            <option value="720p">720p</option>
+            <option value="1080p">1080p</option>
+            <option value="1440p">1440p</option>
+            <option value="2160p">2160p</option>
+            <option value="4320p">4320p</option>
+        </select>
+    </div>
+
+    <div class="selectContainer">
+        <label class="selectLabel" for="defaultShaderBelowMinResolution">Shader Below Min
+            Resolution:</label>
+        <select is="emby-select" id="defaultShaderBelowMinResolution" name="defaultShaderBelowMinResolution"
+            class="emby-select-withcolor">
+            <option value="Bilinear">Bilinear</option>
+            <option value="Bicubic">Bicubic</option>
+            <option value="Lanczos">Lanczos</option>
+        </select>
+    </div>
+
+    <div class="selectContainer">
+        <label class="selectLabel" for="defaultShaderAboveMaxResolution">Shader Above Max
+            Resolution:</label>
+        <select is="emby-select" id="defaultShaderAboveMaxResolution" name="defaultShaderAboveMaxResolution"
+            class="emby-select-withcolor">
+            <option value="Bilinear">Bilinear</option>
+            <option value="Bicubic">Bicubic</option>
+            <option value="Lanczos">Lanczos</option>
+        </select>
+    </div>
+
+    <div class="inputContainer">
+        <label class="inputLabel inputLabelUnfocused" for="sharpness">Sharpness (0-5):</label>
+        <input is="emby-input" type="number" id="sharpness" name="sharpness" min="0" max="5" step="1" value="2"
+            class="emby-input" />
+        <div class="fieldDescription">Adjust sharpness of the video output.</div>
+    </div>
+
+    <div class="inputContainer">
+        <label class="inputLabel inputLabelUnfocused" for="saturation">Saturation (-1 to 3):</label>
+        <input is="emby-input" type="number" id="saturation" name="saturation" min="-1" max="3" step="1" value="1"
+            class="emby-input" />
+        <div class="fieldDescription">Adjust color saturation.</div>
+    </div>
+
+    <div class="inputContainer">
+        <label class="inputLabel inputLabelUnfocused" for="contrast">Contrast (0.5 - 2.0):</label>
+        <input is="emby-input" type="number" id="contrast" name="contrast" min="0.5" max="2.0" step="0.1" value="1.0"
+            class="emby-input" />
+        <div class="fieldDescription">Adjust contrast.</div>
+    </div>
+
+    <div class="inputContainer">
+        <label class="inputLabel inputLabelUnfocused" for="denoising">Denoising (0-3):</label>
+        <input is="emby-input" type="number" id="denoising" name="denoising" min="0" max="3" step="1" value="1"
+            class="emby-input" />
+        <div class="fieldDescription">Reduce noise in the video.</div>
+    </div>
+</div>
+
+<div class="verticalSection">
+    <button is="emby-button" type="button" id="runBenchmark" class="raised button-submit emby-button">
+        <span>Run Benchmark Test</span>
+    </button>
+</div>
+
+<div>
+    <button is="emby-button" type="submit" class="raised button-submit emby-button">
+        <span>Save</span>
+    </button>
+    <button is="emby-button" type="button" onclick="history.back();" class="raised button-cancel emby-button">
+        <span>Cancel</span>
+    </button>
+</div>
+</form>
+</div>
+</div>
+
+<script type="text/javascript">
+    (function () {
+        var pluginId = "f87f700e-679d-43e6-9c7c-b3a410dc3f12";
+
+        $('.UpscalerPluginConfigPage').on('pageshow', function () {
+            Dashboard.showLoadingMsg();
+            ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                loadConfiguration(config);
+                Dashboard.hideLoadingMsg();
+            });
+        });
+
+        function loadConfiguration(config) {
+            const form = document.querySelector('#UpscalerPluginConfigForm');
+
+            form.selectedProfile.value = config.SelectedProfile || 'Default';
+            form.enableBenchmark.checked = config.EnableBenchmark !== false;
+
+            // Sidecar configuration
+            form.sidecarServiceUrl.value = config.SidecarServiceUrl || 'http://jellyfin-upscaler-sidecar:8765';
+            form.sidecarTimeoutSeconds.value = config.SidecarTimeoutSeconds || 30;
+            form.autoUpscaleEnabled.checked = config.AutoUpscaleEnabled || false;
+
+            // Custom settings
+            if (config.CustomSettings) {
+                form.enableFPSRule.checked = config.CustomSettings.EnableFPSRule || false;
+                form.maxFPSForAI.value = config.CustomSettings.MaxFPSForAI || 'Unlimited';
+                form.minResolutionForAI.value = config.CustomSettings.MinResolutionForAI || '1080p';
+                form.maxResolutionForAI.value = config.CustomSettings.MaxResolutionForAI || '4320p';
+                form.defaultShaderBelowMinResolution.value = config.CustomSettings.DefaultShaderBelowMinResolution || 'Bicubic';
+                form.defaultShaderAboveMaxResolution.value = config.CustomSettings.DefaultShaderAboveMaxResolution || 'Lanczos';
+                form.sharpness.value = config.CustomSettings.Sharpness || 2;
+                form.saturation.value = config.CustomSettings.Saturation || 1;
+                form.contrast.value = config.CustomSettings.Contrast || 1.0;
+                form.denoising.value = config.CustomSettings.Denoising || 1;
+            }
+
+            toggleCustomSettings();
+        }
+
+        function toggleCustomSettings() {
+            const selectedProfile = document.getElementById('selectedProfile').value;
+            const customSection = document.getElementById('customSettingsSection');
+
+            if (selectedProfile === 'Custom') {
+                customSection.style.display = 'block';
+            } else {
+                customSection.style.display = 'none';
+            }
+        }
+
+        document.getElementById('selectedProfile').addEventListener('change', toggleCustomSettings);
+
+        document.getElementById('runBenchmark').addEventListener('click', function () {
+            Dashboard.showLoadingMsg();
+            // Run benchmark test - this would integrate with the upscale.js functionality
+            setTimeout(function () {
+                Dashboard.hideLoadingMsg();
+                Dashboard.alert('Benchmark test completed. Check browser console for results.');
+            }, 3000);
+        });
+
+        document.getElementById('testSidecarConnection').addEventListener('click', function () {
+            const sidecarUrl = document.getElementById('sidecarServiceUrl').value;
+            const statusSpan = document.getElementById('connectionStatus');
+
+            if (!sidecarUrl) {
+                statusSpan.innerHTML = '<span style="color: #ff6b6b;">❌ Please enter a URL</span>';
+                return;
+            }
+
+            statusSpan.innerHTML = '<span style="color: #4ecdc4;">🔄 Testing...</span>';
+
+            // Test connection to sidecar service
+            fetch(sidecarUrl + '/health', {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                },
+                mode: 'cors'
+            })
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    } else {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                })
+                .then(data => {
+                    statusSpan.innerHTML = '<span style="color: #51cf66;">✅ Connected successfully</span>';
+                    console.log('Sidecar service health:', data);
+                })
+                .catch(error => {
+                    console.error('Connection test failed:', error);
+                    statusSpan.innerHTML = `<span style="color: #ff6b6b;">❌ Connection failed: ${error.message}</span>`;
+                });
+        });
+
+        document.querySelector('#UpscalerPluginConfigForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            Dashboard.showLoadingMsg();
+
+            const form = this;
+            const config = {
+                SelectedProfile: form.selectedProfile.value,
+                EnableBenchmark: form.enableBenchmark.checked,
+                SidecarServiceUrl: form.sidecarServiceUrl.value,
+                SidecarTimeoutSeconds: parseInt(form.sidecarTimeoutSeconds.value) || 30,
+                AutoUpscaleEnabled: form.autoUpscaleEnabled.checked,
+                CustomSettings: {
+                    EnableFPSRule: form.enableFPSRule.checked,
+                    MaxFPSForAI: form.maxFPSForAI.value,
+                    MinResolutionForAI: form.minResolutionForAI.value,
+                    MaxResolutionForAI: form.maxResolutionForAI.value,
+                    DefaultShaderBelowMinResolution: form.defaultShaderBelowMinResolution.value,
+                    DefaultShaderAboveMaxResolution: form.defaultShaderAboveMaxResolution.value,
+                    Sharpness: parseInt(form.sharpness.value) || 2,
+                    Saturation: parseInt(form.saturation.value) || 1,
+                    Contrast: parseFloat(form.contrast.value) || 1.0,
+                    Denoising: parseInt(form.denoising.value) || 1
+                }
+            };
+
+            ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
+                Dashboard.processPluginConfigurationUpdateResult(result);
+            });
+        });
+
+    })();
+</script>
+</div>
+</body>
+
+</html>

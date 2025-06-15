@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - JELLYFIN_UPSCALER_SIDECAR_URL=http://jellyfin-upscaler-sidecar:8765
+    volumes:
+      - ./jellyfin/config:/config
+      - ./jellyfin/cache:/cache
+      - ./media:/media:ro
+      - ./jellyfin/plugins:/config/plugins
+    ports:
+      - "8096:8096"
+      - "8920:8920" # Optional - HTTPS port
+      - "7359:7359/udp" # Optional - DLNA
+      - "1900:1900/udp" # Optional - DLNA
+    restart: unless-stopped
+    depends_on:
+      - jellyfin-upscaler-sidecar
+    networks:
+      - jellyfin-network
+
+  jellyfin-upscaler-sidecar:
+    build:
+      context: ./docker/upscaler-service
+      dockerfile: Dockerfile  # Uses Ubuntu 22.04 for better package compatibility
+    container_name: jellyfin-upscaler-sidecar
+    environment:
+      - UPSCALER_DEBUG=false
+      - UPSCALER_LOG_LEVEL=INFO
+      - UPSCALER_MAX_CONCURRENT_JOBS=2
+      - UPSCALER_USE_GPU=true
+      - UPSCALER_MODEL_PATH=/app/models
+      - UPSCALER_TEMP_PATH=/app/temp
+      - UPSCALER_OUTPUT_PATH=/app/output
+    volumes:
+      - ./media:/media:ro                    # Read-only access to media files
+      - ./upscaler/models:/app/models        # AI models storage
+      - ./upscaler/temp:/app/temp            # Temporary processing files
+      - ./upscaler/output:/app/output        # Upscaled output files
+      - ./upscaler/logs:/app/logs            # Service logs
+    ports:
+      - "8765:8765"  # API port (optional - only needed for direct access)
+    restart: unless-stopped
+    networks:
+      - jellyfin-network
+    # GPU support - NVIDIA enabled by default
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    
+    # For AMD GPUs (ROCm):
+    # devices:
+    #   - /dev/kfd:/dev/kfd
+    #   - /dev/dri:/dev/dri
+    # group_add:
+    #   - video
+    
+    # For Intel GPUs:
+    # devices:
+    #   - /dev/dri:/dev/dri
+    # group_add:
+    #   - video
+
+  # Optional: Redis for job queue management (for high-volume setups)
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: jellyfin-upscaler-redis
+  #   volumes:
+  #     - ./redis/data:/data
+  #   networks:
+  #     - jellyfin-network
+  #   restart: unless-stopped
+
+networks:
+  jellyfin-network:
+    driver: bridge
+
+volumes:
+  jellyfin-config:
+  jellyfin-cache:
+  upscaler-models:
+  upscaler-temp:
+  upscaler-output:

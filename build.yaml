@@ -1,0 +1,24 @@
+---
+name: "jellyfin-upscaler-plugin"
+guid: "f87f700e-679d-43e6-9c7c-b3a410dc3f12"
+version: "1.0.0"
+jellyfinVersion: "10.10.3"
+dotnetVersion: "8.0"
+runtimeIdentifier: "linux-x64"
+framework: "net8.0"
+
+repositories:
+  - name: "jellyfin"
+    url: "https://repo.jellyfin.org/releases/plugin/manifest-stable.json"
+
+projects:
+  - name: "Jellyfin.Plugin.UpscalerPlugin"
+    path: "/src/Jellyfin.Plugin.UpscalerPlugin/"
+
+artifacts:
+  - "**/*.dll"
+  - "**/*.pdb"
+  - "**/*.json"
+  - "**/*.glsl"
+  - "**/*.html"
+  - "**/*.js"

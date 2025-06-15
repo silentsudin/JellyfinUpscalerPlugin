@@ -1,0 +1,86 @@
+# Jellyfin Upscaler Sidecar Service - AMD GPU (ROCm)
+# Using ROCm for AMD GPU acceleration
+FROM rocm/pytorch:rocm6.0_ubuntu22.04_py3.10_pytorch_2.1.1
+
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies including Python 3.11
+RUN apt-get update && apt-get install -y \
+    software-properties-common \
+    ca-certificates \
+    gnupg \
+    lsb-release \
+    && add-apt-repository ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y \
+    python3.11 \
+    python3.11-dev \
+    python3.11-distutils \
+    python3-pip \
+    build-essential \
+    cmake \
+    git \
+    wget \
+    curl \
+    ffmpeg \
+    libgl1-mesa-glx \
+    libgl1-mesa-dev \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    libegl1-mesa \
+    libgles2-mesa \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set Python 3.11 as default (optional - can use existing Python)
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 || true
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 || true
+
+# Upgrade pip
+RUN python3 -m pip install --upgrade pip
+
+# Set working directory
+WORKDIR /app
+
+# Install PyTorch with ROCm support (if not already installed)
+# Note: ROCm PyTorch is already installed in the base image
+RUN python3 -m pip install --upgrade torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.0
+
+# Copy AMD-specific requirements and install Python dependencies
+COPY requirements-amd.txt .
+RUN python3 -m pip install --no-cache-dir -r requirements-amd.txt
+
+# Copy application code
+COPY src/ ./src/
+
+# Copy config and models directories
+COPY config/ ./config/
+COPY models/ ./models/
+
+# Create additional necessary directories
+RUN mkdir -p /app/temp /app/output /app/logs
+
+# Expose port for API
+EXPOSE 8765
+
+# Set environment variables for AMD GPU
+ENV PYTHONPATH=/app
+ENV UPSCALER_CONFIG_PATH=/app/config
+ENV UPSCALER_MODEL_PATH=/app/models
+ENV UPSCALER_TEMP_PATH=/app/temp
+ENV UPSCALER_LOG_LEVEL=INFO
+ENV UPSCALER_USE_AMD_GPU=true
+ENV UPSCALER_DEVICE_TYPE=cuda
+
+# ROCm specific environment variables
+ENV HIP_VISIBLE_DEVICES=0
+ENV ROCM_VERSION=6.0
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8765/health || exit 1
+
+# Run the upscaler service
+CMD ["python3", "-m", "src.main"]

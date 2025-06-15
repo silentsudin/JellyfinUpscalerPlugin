@@ -1,0 +1,137 @@
+version: '3.8'
+
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - JELLYFIN_UPSCALER_SIDECAR_URL=http://jellyfin-upscaler-sidecar:8765
+    volumes:
+      - ./jellyfin/config:/config
+      - ./jellyfin/cache:/cache
+      - ./media:/media:ro
+      - ./jellyfin/plugins:/config/plugins
+    ports:
+      - "8096:8096"
+      - "8920:8920" # Optional - HTTPS port
+      - "7359:7359/udp" # Optional - DLNA
+      - "1900:1900/udp" # Optional - DLNA
+    restart: unless-stopped
+    depends_on:
+      - jellyfin-upscaler-sidecar
+    networks:
+      - jellyfin-network
+
+  # NVIDIA GPU Version (default)
+  jellyfin-upscaler-sidecar:
+    build:
+      context: ./docker/upscaler-service
+      dockerfile: Dockerfile  # NVIDIA CUDA version
+    container_name: jellyfin-upscaler-sidecar
+    environment:
+      - UPSCALER_DEBUG=false
+      - UPSCALER_LOG_LEVEL=INFO
+      - UPSCALER_MAX_CONCURRENT_JOBS=2
+      - UPSCALER_USE_GPU=true
+      - UPSCALER_DEVICE_TYPE=cuda
+      - UPSCALER_MODEL_PATH=/app/models
+      - UPSCALER_TEMP_PATH=/app/temp
+      - UPSCALER_OUTPUT_PATH=/app/output
+    volumes:
+      - ./media:/media:ro                    # Read-only access to media files
+      - ./upscaler/models:/app/models        # AI models storage
+      - ./upscaler/temp:/app/temp            # Temporary processing files
+      - ./upscaler/output:/app/output        # Upscaled output files
+      - ./upscaler/logs:/app/logs            # Service logs
+    ports:
+      - "8765:8765"  # API port (optional - only needed for direct access)
+    restart: unless-stopped
+    networks:
+      - jellyfin-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # Intel GPU Version (alternative service)
+  jellyfin-upscaler-sidecar-intel:
+    build:
+      context: ./docker/upscaler-service
+      dockerfile: Dockerfile.intel  # Intel XPU version
+    container_name: jellyfin-upscaler-sidecar-intel
+    environment:
+      - UPSCALER_DEBUG=false
+      - UPSCALER_LOG_LEVEL=INFO
+      - UPSCALER_MAX_CONCURRENT_JOBS=2
+      - UPSCALER_USE_GPU=true
+      - UPSCALER_DEVICE_TYPE=xpu
+      - UPSCALER_MODEL_PATH=/app/models
+      - UPSCALER_TEMP_PATH=/app/temp
+      - UPSCALER_OUTPUT_PATH=/app/output
+    volumes:
+      - ./media:/media:ro
+      - ./upscaler/models:/app/models
+      - ./upscaler/temp:/app/temp
+      - ./upscaler/output:/app/output
+      - ./upscaler/logs:/app/logs
+    ports:
+      - "8766:8765"  # Different port to avoid conflicts
+    restart: unless-stopped
+    networks:
+      - jellyfin-network
+    devices:
+      - /dev/dri:/dev/dri  # Intel GPU device access
+    profiles:
+      - intel  # Use with: docker-compose --profile intel up
+
+  # AMD GPU Version (alternative service)
+  jellyfin-upscaler-sidecar-amd:
+    build:
+      context: ./docker/upscaler-service
+      dockerfile: Dockerfile.amd  # AMD ROCm version
+    container_name: jellyfin-upscaler-sidecar-amd
+    environment:
+      - UPSCALER_DEBUG=false
+      - UPSCALER_LOG_LEVEL=INFO
+      - UPSCALER_MAX_CONCURRENT_JOBS=2
+      - UPSCALER_USE_GPU=true
+      - UPSCALER_DEVICE_TYPE=cuda
+      - UPSCALER_MODEL_PATH=/app/models
+      - UPSCALER_TEMP_PATH=/app/temp
+      - UPSCALER_OUTPUT_PATH=/app/output
+      - HIP_VISIBLE_DEVICES=0
+    volumes:
+      - ./media:/media:ro
+      - ./upscaler/models:/app/models
+      - ./upscaler/temp:/app/temp
+      - ./upscaler/output:/app/output
+      - ./upscaler/logs:/app/logs
+    ports:
+      - "8767:8765"  # Different port to avoid conflicts
+    restart: unless-stopped
+    networks:
+      - jellyfin-network
+    devices:
+      - /dev/kfd:/dev/kfd    # AMD GPU kernel driver
+      - /dev/dri:/dev/dri    # AMD GPU device access
+    group_add:
+      - video
+    profiles:
+      - amd  # Use with: docker-compose --profile amd up
+
+networks:
+  jellyfin-network:
+    driver: bridge
+
+volumes:
+  jellyfin-config:
+  jellyfin-cache:
+  upscaler-models:
+  upscaler-temp:
+  upscaler-output:
