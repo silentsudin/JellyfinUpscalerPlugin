@@ -115,13 +115,14 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.gpu-type.name }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
+            latest-${{ matrix.gpu-type.name }}
+            type=ref,event=branch-${{ matrix.gpu-type.name }}
+            type=ref,event=pr-${{ matrix.gpu-type.name }}
+            type=semver,pattern={{version}}-${{ matrix.gpu-type.name }}
+            type=semver,pattern={{major}}.{{minor}}-${{ matrix.gpu-type.name }}
+            type=raw,value=latest,enable={{is_default_branch}}-${{ matrix.gpu-type.name }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
