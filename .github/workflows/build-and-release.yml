@@ -91,11 +91,6 @@ jobs:
               dockerfile: "Dockerfile.intel",
               platform: "linux/amd64",
             }
-          - {
-              name: "amd",
-              dockerfile: "Dockerfile.amd",
-              platform: "linux/amd64",
-            }
     permissions:
       contents: read
       packages: write
