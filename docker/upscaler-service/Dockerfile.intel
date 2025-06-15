@@ -36,10 +36,6 @@ RUN python3 -m pip install --upgrade pip
 # Set working directory
 WORKDIR /app
 
-# Install Intel Extension for PyTorch and compatible versions
-# Note: IPEX is already installed in the base image, but we may need specific versions
-RUN python3 -m pip install intel-extension-for-pytorch==2.1.10+xpu --find-links https://pytorch-extension.intel.com/release-whl/stable/xpu/us/
-
 # Copy Intel-specific requirements and install Python dependencies
 COPY requirements-intel.txt .
 RUN python3 -m pip install --no-cache-dir -r requirements-intel.txt
