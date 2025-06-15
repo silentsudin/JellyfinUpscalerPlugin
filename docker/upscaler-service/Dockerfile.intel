@@ -1,6 +1,6 @@
 # Jellyfin Upscaler Sidecar Service - Intel GPU (IPEX)
 # Using Intel Extension for PyTorch for Intel GPU acceleration
-FROM intel/intel-extension-for-pytorch:2.1.10-xpu-pip-base
+FROM intel/intel-extension-for-pytorch:2.7.10-xpu-pip-base
 
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
