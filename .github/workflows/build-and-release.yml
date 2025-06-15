@@ -85,7 +85,7 @@ jobs:
     strategy:
       matrix:
         gpu-type:
-          - { name: "cuda", dockerfile: "Dockerfile", platform: "linux/amd64" }
+          - { name: "cuda", dockerfile: "Dockerfile.nvidia", platform: "linux/amd64" }
           - {
               name: "intel",
               dockerfile: "Dockerfile.intel",

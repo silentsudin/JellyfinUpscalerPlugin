@@ -1,5 +1,5 @@
 # Jellyfin Upscaler Sidecar Service - NVIDIA CUDA (Ubuntu 22.04 for better compatibility)
-FROM nvidia/cuda:12.2-devel-ubuntu22.04
+FROM pytorch/pytorch:2.7.1-cuda12.8-cudnn9-devel
 
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -33,22 +33,12 @@ RUN apt-get update && apt-get install -y \
     libgles2-mesa \
     && rm -rf /var/lib/apt/lists/*
 
-# Set Python 3.11 as default
-RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1
-
-# Upgrade pip
-RUN python3 -m pip install --upgrade pip
-
 # Set working directory
 WORKDIR /app
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
 RUN python3 -m pip install --no-cache-dir -r requirements.txt
-
-# Install PyTorch with CUDA support (CUDA 12.1 for better compatibility)
-RUN python3 -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 
 # Copy application code
 COPY src/ ./src/
