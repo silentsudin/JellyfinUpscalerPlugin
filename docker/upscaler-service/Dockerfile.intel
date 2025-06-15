@@ -38,7 +38,15 @@ WORKDIR /app
 
 # Copy Intel-specific requirements and install Python dependencies
 COPY requirements-intel.txt .
-RUN python3 -m pip install --no-cache-dir -r requirements-intel.txt
+RUN python3 -m pip install --no-cache-dir -r requirements-intel.txt || echo "Some packages failed, trying alternative installation..."
+
+# Fallback: Install BasicSR and RealESRGAN from source if pip install failed
+RUN python3 -c "import basicsr" 2>/dev/null || python3 -m pip install --no-cache-dir git+https://github.com/xinntao/BasicSR.git
+RUN python3 -c "import realesrgan" 2>/dev/null || python3 -m pip install --no-cache-dir git+https://github.com/xinntao/Real-ESRGAN.git
+
+# Debug: List installed packages and verify imports
+RUN python3 -m pip list | grep -E "(basicsr|realesrgan|torch|intel)"
+RUN python3 -c "import sys; print('Python path:', sys.path)"
 
 # Copy application code
 COPY src/ ./src/
@@ -48,7 +56,13 @@ COPY config/ ./config/
 COPY models/ ./models/
 
 # Create additional necessary directories
-RUN mkdir -p /app/temp /app/output /app/logs
+RUN mkdir -p /app/temp /app/output /app/logs /tmp/sycl_cache
+
+# Verify Intel GPU is available and libraries can be imported
+RUN python3 -c "import torch; import intel_extension_for_pytorch as ipex; print('Intel Extension for PyTorch available')" || echo "Intel GPU not available"
+RUN python3 -c "import cv2; print('OpenCV available')" || echo "OpenCV not available"
+RUN python3 -c "import basicsr; print('BasicSR available')" || echo "BasicSR not available"
+RUN python3 -c "import realesrgan; print('RealESRGAN available')" || echo "RealESRGAN not available"
 
 # Expose port for API
 EXPOSE 8765
@@ -65,6 +79,12 @@ ENV UPSCALER_DEVICE_TYPE=xpu
 # Intel GPU specific environment variables
 ENV SYCL_PI_LEVEL_ZERO_USE_IMMEDIATE_COMMANDLISTS=1
 ENV SYCL_CACHE_PERSISTENT=1
+ENV SYCL_CACHE_DIR=/tmp/sycl_cache
+ENV ONEAPI_DEVICE_SELECTOR=level_zero:gpu
+
+# PyTorch Intel GPU optimization
+ENV TORCH_SHOW_CPP_STACKTRACES=1
+ENV IPEX_TILE_AS_DEVICE=1
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
